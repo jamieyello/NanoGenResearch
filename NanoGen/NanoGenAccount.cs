@@ -1,11 +1,4 @@
-﻿using Chaos.NaCl;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace NanoGen
+﻿namespace NanoGen
 {
     static class NanoGenAccount
     {
@@ -17,7 +10,7 @@ namespace NanoGen
 
         public static string GetAddressFast(Span<byte> private_key)
         {
-            Ed25519.KeyPairFromSeed(out byte[] public_key, out byte[] _, private_key.ToArray());
+            KeyPairFromSeed(out byte[] public_key, out byte[] _, private_key.ToArray());
             var address = AddressFromPublicKey(public_key, "nano_");
 
             return address;
@@ -48,88 +41,14 @@ namespace NanoGen
             ge_p3_tobytes(pk, pkoffset, ref A);
 
             for (i = 0; i < 32; ++i) sk[skoffset + 32 + i] = pk[pkoffset + i];
-            //Array.Clear(h, 0, h.Length); test this instead of below
-            CryptoBytes.Wipe(h);
+            Array.Clear(h, 0, h.Length);
         }
-
-        public static void ge_scalarmult_base(out GroupElementP3 h, byte[] a, int offset)
-        {
-            // todo: Perhaps remove this allocation
-            sbyte[] e = new sbyte[64];
-            sbyte carry;
-            GroupElementP1P1 r;
-            GroupElementP2 s;
-            GroupElementPreComp t;
-            int i;
-
-            for (i = 0; i < 32; ++i)
-            {
-                e[2 * i + 0] = (sbyte)((a[offset + i] >> 0) & 15);
-                e[2 * i + 1] = (sbyte)((a[offset + i] >> 4) & 15);
-            }
-            /* each e[i] is between 0 and 15 */
-            /* e[63] is between 0 and 7 */
-
-            carry = 0;
-            for (i = 0; i < 63; ++i)
-            {
-                e[i] += carry;
-                carry = (sbyte)(e[i] + 8);
-                carry >>= 4;
-                e[i] -= (sbyte)(carry << 4);
-            }
-            e[63] += carry;
-            /* each e[i] is between -8 and 8 */
-
-            ge_p3_0(out h);
-            for (i = 1; i < 64; i += 2)
-            {
-                select(out t, i / 2, e[i]);
-                ge_madd(out r, ref h, ref t); ge_p1p1_to_p3(out h, ref r);
-            }
-
-            ge_p3_dbl(out r, ref h); ge_p1p1_to_p2(out s, ref r);
-            ge_p2_dbl(out r, ref s); ge_p1p1_to_p2(out s, ref r);
-            ge_p2_dbl(out r, ref s); ge_p1p1_to_p2(out s, ref r);
-            ge_p2_dbl(out r, ref s); ge_p1p1_to_p3(out h, ref r);
-
-            for (i = 0; i < 64; i += 2)
-            {
-                select(out t, i / 2, e[i]);
-                ge_madd(out r, ref h, ref t); ge_p1p1_to_p3(out h, ref r);
-            }
-        }
-
         static byte negative(sbyte b)
         {
             ulong x = unchecked((ulong)(long)b); /* 18446744073709551361..18446744073709551615: yes; 0..255: no */
             x >>= 63; /* 1: yes; 0: no */
             return (byte)x;
         }
-
-        public static void ge_p1p1_to_p3(out GroupElementP3 r, ref GroupElementP1P1 p)
-        {
-            fe_mul(out r.X, ref p.X, ref p.T);
-            fe_mul(out r.Y, ref p.Y, ref p.Z);
-            fe_mul(out r.Z, ref p.Z, ref p.T);
-            fe_mul(out r.T, ref p.X, ref p.Y);
-        }
-
-        public static void ge_p3_0(out GroupElementP3 h)
-        {
-            fe_0(out h.X);
-            fe_1(out h.Y);
-            fe_1(out h.Z);
-            fe_0(out h.T);
-        }
-
-        public static void ge_precomp_0(out GroupElementPreComp h)
-        {
-            fe_1(out h.yplusx);
-            fe_1(out h.yminusx);
-            fe_0(out h.xy2d);
-        }
-
         static void select(out GroupElementPreComp t, int pos, sbyte b)
         {
             GroupElementPreComp minust;
@@ -151,7 +70,6 @@ namespace NanoGen
             fe_neg(out minust.xy2d, ref t.xy2d);
             cmov(ref t, ref minust, bnegative);
         }
-
         static byte equal(byte b, byte c)
         {
             byte ub = b;
@@ -162,7 +80,6 @@ namespace NanoGen
             y >>= 31; /* 1: yes; 0: no */
             return (byte)y;
         }
-
         static void cmov(ref GroupElementPreComp t, ref GroupElementPreComp u, byte b)
         {
             fe_cmov(ref t.yplusx, ref u.yplusx, b);
@@ -1145,6 +1062,53 @@ namespace NanoGen
         #endregion
 
         #region Group Operations
+        public static void ge_scalarmult_base(out GroupElementP3 h, byte[] a, int offset)
+        {
+            // todo: Perhaps remove this allocation
+            sbyte[] e = new sbyte[64];
+            sbyte carry;
+            GroupElementP1P1 r;
+            GroupElementP2 s;
+            GroupElementPreComp t;
+            int i;
+
+            for (i = 0; i < 32; ++i)
+            {
+                e[2 * i + 0] = (sbyte)((a[offset + i] >> 0) & 15);
+                e[2 * i + 1] = (sbyte)((a[offset + i] >> 4) & 15);
+            }
+            /* each e[i] is between 0 and 15 */
+            /* e[63] is between 0 and 7 */
+
+            carry = 0;
+            for (i = 0; i < 63; ++i)
+            {
+                e[i] += carry;
+                carry = (sbyte)(e[i] + 8);
+                carry >>= 4;
+                e[i] -= (sbyte)(carry << 4);
+            }
+            e[63] += carry;
+            /* each e[i] is between -8 and 8 */
+
+            ge_p3_0(out h);
+            for (i = 1; i < 64; i += 2)
+            {
+                select(out t, i / 2, e[i]);
+                ge_madd(out r, ref h, ref t); ge_p1p1_to_p3(out h, ref r);
+            }
+
+            ge_p3_dbl(out r, ref h); ge_p1p1_to_p2(out s, ref r);
+            ge_p2_dbl(out r, ref s); ge_p1p1_to_p2(out s, ref r);
+            ge_p2_dbl(out r, ref s); ge_p1p1_to_p2(out s, ref r);
+            ge_p2_dbl(out r, ref s); ge_p1p1_to_p3(out h, ref r);
+
+            for (i = 0; i < 64; i += 2)
+            {
+                select(out t, i / 2, e[i]);
+                ge_madd(out r, ref h, ref t); ge_p1p1_to_p3(out h, ref r);
+            }
+        }
         public static void ge_madd(out GroupElementP1P1 r, ref GroupElementP3 p, ref GroupElementPreComp q)
         {
             FieldElement t0;
@@ -1346,6 +1310,26 @@ namespace NanoGen
             /* qhasm: return */
 
         }
+        public static void ge_p3_0(out GroupElementP3 h)
+        {
+            fe_0(out h.X);
+            fe_1(out h.Y);
+            fe_1(out h.Z);
+            fe_0(out h.T);
+        }
+        public static void ge_p1p1_to_p3(out GroupElementP3 r, ref GroupElementP1P1 p)
+        {
+            fe_mul(out r.X, ref p.X, ref p.T);
+            fe_mul(out r.Y, ref p.Y, ref p.Z);
+            fe_mul(out r.Z, ref p.Z, ref p.T);
+            fe_mul(out r.T, ref p.X, ref p.Y);
+        }
+        public static void ge_precomp_0(out GroupElementPreComp h)
+        {
+            fe_1(out h.yplusx);
+            fe_1(out h.yminusx);
+            fe_0(out h.xy2d);
+        }
         #endregion
 
         #region Scalar Operations
@@ -1357,13 +1341,39 @@ namespace NanoGen
         }
         #endregion
 
+        internal struct FieldElement
+        {
+            internal int x0;
+            internal int x1;
+            internal int x2;
+            internal int x3;
+            internal int x4;
+            internal int x5;
+            internal int x6;
+            internal int x7;
+            internal int x8;
+            internal int x9;
+
+            internal FieldElement(params int[] elements)
+            {
+                x0 = elements[0];
+                x1 = elements[1];
+                x2 = elements[2];
+                x3 = elements[3];
+                x4 = elements[4];
+                x5 = elements[5];
+                x6 = elements[6];
+                x7 = elements[7];
+                x8 = elements[8];
+                x9 = elements[9];
+            }
+        }
         internal struct GroupElementP2
         {
             public FieldElement X;
             public FieldElement Y;
             public FieldElement Z;
         };
-
         internal struct GroupElementP3
         {
             public FieldElement X;
@@ -1371,7 +1381,6 @@ namespace NanoGen
             public FieldElement Z;
             public FieldElement T;
         };
-
         internal struct GroupElementP1P1
         {
             public FieldElement X;
@@ -1379,7 +1388,6 @@ namespace NanoGen
             public FieldElement Z;
             public FieldElement T;
         };
-
         internal struct GroupElementPreComp
         {
             public FieldElement yplusx;
@@ -1393,7 +1401,6 @@ namespace NanoGen
                 this.xy2d = xy2d;
             }
         };
-
         internal struct GroupElementCached
         {
             public FieldElement YplusX;
@@ -1401,7 +1408,6 @@ namespace NanoGen
             public FieldElement Z;
             public FieldElement T2d;
         };
-
         internal static GroupElementPreComp[][] Base = new GroupElementPreComp[][]
         {
             new[]{
@@ -2761,44 +2767,6 @@ namespace NanoGen
         #endregion
     }
 
-    internal struct FieldElement
-    {
-        internal int x0;
-        internal int x1;
-        internal int x2;
-        internal int x3;
-        internal int x4;
-        internal int x5;
-        internal int x6;
-        internal int x7;
-        internal int x8;
-        internal int x9;
-
-        internal FieldElement(params int[] elements)
-        {
-            x0 = elements[0];
-            x1 = elements[1];
-            x2 = elements[2];
-            x3 = elements[3];
-            x4 = elements[4];
-            x5 = elements[5];
-            x6 = elements[6];
-            x7 = elements[7];
-            x8 = elements[8];
-            x9 = elements[9];
-        }
-    }
-
-    internal static partial class ScalarOperations
-    {
-        public static void sc_clamp(byte[] s, int offset)
-        {
-            s[offset + 0] &= 248;
-            s[offset + 31] &= 127;
-            s[offset + 31] |= 64;
-        }
-    }
-
     #region Blake2B
     public abstract class Hasher
     {
@@ -2809,37 +2777,6 @@ namespace NanoGen
         public void Update(byte[] data)
         {
             Update(data, 0, data.Length);
-        }
-
-        // remove "HashAlgorithm" class if not used.
-        public System.Security.Cryptography.HashAlgorithm AsHashAlgorithm()
-        {
-            return new HashAlgorithmAdapter(this);
-        }
-
-        internal class HashAlgorithmAdapter : System.Security.Cryptography.HashAlgorithm
-        {
-            private readonly Hasher _hasher;
-
-            protected override void HashCore(byte[] array, int ibStart, int cbSize)
-            {
-                _hasher.Update(array, ibStart, cbSize);
-            }
-
-            protected override byte[] HashFinal()
-            {
-                return _hasher.Finish();
-            }
-
-            public override void Initialize()
-            {
-                _hasher.Init();
-            }
-
-            public HashAlgorithmAdapter(Hasher hasher)
-            {
-                _hasher = hasher;
-            }
         }
     }
     public class Blake2BHasher : Hasher
@@ -2941,6 +2878,7 @@ namespace NanoGen
             var v14 = IV6 ^ _finalizationFlag0;
             var v15 = IV7 ^ _finalizationFlag1;
 
+            #region Rounds
             // Rounds
 
             //System.Diagnostics.Debugger.Break();
@@ -4312,8 +4250,7 @@ namespace NanoGen
             v4 ^= v9;
             v4 = ((v4 >> 63) | (v4 << (64 - 63)));
 
-
-
+            #endregion Rounds
 
             //Finalization
             h[0] ^= v0 ^ v8;
