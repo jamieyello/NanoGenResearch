@@ -2,6 +2,7 @@
 using System.Text;
 
 Console.WriteLine("The goal of this project is to reproduce a low level creation of a Nano address.");
+Console.WriteLine("The following code only verifies that the extracted code matches the functionality of the libraries they were extracted from.");
 
 // Create private key
 Span<byte> private_key = new Span<byte>(Encoding.ASCII.GetBytes("0123456789ABCDEF0123456789ABCDEF"));
