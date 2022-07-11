@@ -9,6 +9,7 @@
         public static readonly int SharedKeySizeInBytes = 32;
 
 	// This is the only entry point that should be used, even though others are currently marked as public.
+	// This method is what should be re-implemented in webgl.
 	/// <summary> Takes a private key and outputs a NANO address as a string. </summary>
         public static string GetAddressFast(Span<byte> private_key)
         {
